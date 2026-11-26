@@ -1,6 +1,15 @@
 # MU Fireworks Simulator
 
-A visual-only 2D fireworks particle simulator built with Python and Pygame-ce.
+A visual-only 2D fireworks show simulator built with Python and Pygame-ce.
+
+## v0.2.0 — Grand Show
+
+- Eight selectable shell styles: Peony, Chrysanthemum, Willow, Ring, Palm, Crackle, Strobe, and Brocade
+- Randomized burst geometry, colors, particle speeds, spark lifetimes, and glitter
+- Crackle-style splitting sparks and secondary glitter rain
+- Smoke clouds, bright cores, rocket trails, and additive glow
+- Improved backyard skyline, night gradient, and twinkling stars
+- Automatic show mode, pause, simulation speed, fullscreen, and HUD toggle
 
 ## Requirements
 
@@ -15,38 +24,34 @@ py -m pip install pygame-ce
 
 ## Install
 
-Download these files from the repository and put them in the same folder:
+Download these files into the same folder:
 
 - `mu_fireworks.py`
 - `mu_updater.py`
 - `version.json`
 - `Run MU Fireworks.bat`
 
-Then double-click **Run MU Fireworks.bat**. It checks GitHub for an update, asks before installing, and then starts the simulator.
+Double-click **Run MU Fireworks.bat**. It checks GitHub for updates, asks before installing, then starts the simulator.
 
-You can also run the updater manually:
+You can also run the updater manually with `py mu_updater.py`, or launch the game directly with `py mu_fireworks.py`.
 
-```powershell
-py mu_updater.py
-```
-
-Or launch the game without checking for updates:
-
-```powershell
-py mu_fireworks.py
-```
-
-## Updating
-
-The updater reads `version.json` from the repository's `main` branch. When a newer version is available, it asks before downloading. It validates the Python syntax and creates a timestamped backup of the existing `mu_fireworks.py` before replacing it.
+The updater validates Python syntax and creates a timestamped backup before replacing the game file.
 
 ## Controls
 
-- Left click: launch a virtual bottle-rocket effect
-- Space: launch a random virtual firework
-- B: toggle black sky / backyard
-- R: toggle automatic random launches
-- C: clear particles
-- Esc: quit
+| Key / Input | Action |
+|---|---|
+| Left click | Launch toward cursor |
+| Space | Launch random shell |
+| 1–8 | Select a firework style |
+| 0 | Random style |
+| B | Toggle black sky / backyard |
+| R | Toggle automatic show |
+| P | Pause / resume |
+| + / - | Adjust simulation speed |
+| H | Toggle HUD |
+| F | Toggle fullscreen |
+| C | Clear sky |
+| Esc | Quit |
 
 This project is a visual particle simulation only. It does not provide real-world firework construction or launch instructions.
