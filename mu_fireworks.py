@@ -24,6 +24,7 @@ CONTROLS
 import math
 import random
 import sys
+import array
 from dataclasses import dataclass
 
 import pygame
@@ -161,10 +162,57 @@ class Rocket:
         return self.age >= self.fuse or self.y < 58
 
 
+class SoundEngine:
+    """Procedural game audio synthesized at runtime."""
+    def __init__(self):
+        self.enabled = True
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+            pygame.mixer.set_num_channels(12)
+            self.sounds = {name: self._build(name) for name in ("launch", "burst", "crackle", "firecracker", "fountain")}
+        except pygame.error:
+            self.enabled, self.sounds = False, {}
+
+    def _build(self, kind):
+        rate = 22050
+        duration = {"launch": .42, "burst": .55, "crackle": .24, "firecracker": .12, "fountain": .8}[kind]
+        samples = array.array("h")
+        phase = 0.0
+        for i in range(int(rate * duration)):
+            t = i / rate
+            noise = random.uniform(-1, 1)
+            if kind == "launch":
+                phase += math.tau * (260 - 170*t/duration) / rate
+                value, env = math.sin(phase)*.35 + noise*.32, (t/duration)**.7
+            elif kind == "burst":
+                phase += math.tau * (95 + 35*math.sin(t*18)) / rate
+                value, env = math.sin(phase)*.48 + noise*.8, math.exp(-t*7)
+            elif kind in ("crackle", "firecracker"):
+                value = noise * (1.0 if random.random() < .18 else .12)
+                env = math.exp(-t*(12 if kind == "crackle" else 24))
+            else:
+                phase += math.tau * random.uniform(700,1800) / rate
+                value, env = math.sin(phase)*.22 + noise*.48, .7 + .3*math.sin(t*25)
+            samples.append(int(max(-1,min(1,value*env))*25000))
+        return pygame.mixer.Sound(buffer=samples.tobytes())
+
+    def play(self, name, volume=1.0):
+        if self.enabled:
+            try:
+                channel = pygame.mixer.find_channel(True)
+                if channel:
+                    channel.set_volume(volume)
+                    channel.play(self.sounds[name])
+            except (pygame.error, KeyError):
+                pass
+
+
 class FireworksSimulation:
     def __init__(self):
         pygame.init()
-        pygame.display.set_caption("MU Fireworks Simulator v0.2 — Grand Show")
+        pygame.display.set_caption("MU Fireworks Simulator v0.3 — Total Show Overhaul")
+        self.audio = SoundEngine()
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
         self.canvas = pygame.Surface((WIDTH, HEIGHT))
         self.glow = pygame.Surface((WIDTH, HEIGHT))
@@ -183,6 +231,14 @@ class FireworksSimulation:
         self.show_hud = True
         self.speed = 1.0
         self.selected_effect = -1
+        self.wind = random.uniform(-9, 9)
+        self.wind_clock = 0.0
+        self.firecracker_clock = 0.0
+        self.firecracker_active = False
+        self.candle_clock = 0.0
+        self.candle_shots = 0
+        self.fountain_active = False
+        self.fountain_clock = 0.0
         self.running = True
         self.fullscreen = False
         self.elapsed = 0.0
@@ -241,6 +297,7 @@ class FireworksSimulation:
         if chosen < 0:
             chosen = random.randrange(len(EFFECTS))
         self.rockets.append(Rocket(sx, sy, vx, vy, hue, chosen, fuse=fuse))
+        self.audio.play("launch", 0.35)
         self.launch_count += 1
 
     def add_particle(self, x, y, vx, vy, radius, color, life,
@@ -360,6 +417,33 @@ class FireworksSimulation:
             return
         dt *= self.speed
         self.elapsed += dt
+        self.wind_clock += dt
+        if self.wind_clock >= 5.0:
+            self.wind_clock = 0
+            self.wind = random.uniform(-15, 15)
+        if self.firecracker_active:
+            self.firecracker_clock += dt
+            if self.firecracker_clock >= .105:
+                self.firecracker_clock = 0
+                for _ in range(random.randint(2, 4)):
+                    x, y = random.randint(120, WIDTH-120), HEIGHT-random.randint(28,85)
+                    for _ in range(random.randint(5,10)):
+                        self.add_particle(x,y,random.uniform(-75,75),random.uniform(-155,-35),random.uniform(1,2),random.choice([(255,190,90),(255,235,180)]),random.uniform(.18,.38),drag=.94,flicker=.25)
+                self.audio.play("firecracker", .35)
+        if self.candle_shots > 0:
+            self.candle_clock += dt
+            if self.candle_clock >= .38:
+                self.candle_clock = 0
+                self.candle_shots -= 1
+                self.launch((random.randint(260,WIDTH-260),random.randint(160,390)))
+        if self.fountain_active:
+            self.fountain_clock += dt
+            if self.fountain_clock >= .018:
+                self.fountain_clock = 0
+                for _ in range(5):
+                    self.add_particle(WIDTH*.5+random.uniform(-22,22),HEIGHT-55,random.uniform(-85,85),random.uniform(-310,-130),random.uniform(1,2.4),random.choice([(255,180,65),(255,230,150),(255,250,220)]),random.uniform(.45,1.15),drag=.975,flicker=.2)
+                if random.random() < .08:
+                    self.audio.play("fountain", .12)
 
         if self.auto_show:
             self.auto_clock += dt
@@ -371,11 +455,15 @@ class FireworksSimulation:
         for rocket in self.rockets[:]:
             if rocket.update(dt, self.particles):
                 self.burst(rocket.x, rocket.y, rocket.hue, rocket.effect)
+                self.audio.play("burst", .65)
+                if rocket.effect == 5:
+                    self.audio.play("crackle", .5)
                 self.rockets.remove(rocket)
 
         children = []
         alive = []
         for particle in self.particles:
+            particle.vx += self.wind * dt * (0.12 if particle.smoke else 0.035)
             if particle.update(dt, children):
                 alive.append(particle)
         self.particles = alive
@@ -432,7 +520,7 @@ class FireworksSimulation:
         panel.fill((4, 7, 16, 175))
         self.canvas.blit(panel, (0, 0))
         self.draw_text("MU FIREWORKS SIMULATOR", 18, 12, (255, 226, 170), self.font)
-        self.draw_text("GRAND SHOW  /  v0.2", 18, 39, (150, 190, 255), self.small)
+        self.draw_text("TOTAL SHOW OVERHAUL  /  v0.3.0", 18, 39, (150, 190, 255), self.small)
 
         effect_name = "RANDOM" if self.selected_effect < 0 else EFFECTS[self.selected_effect].upper()
         status = "PAUSED" if self.paused else ("AUTO SHOW" if self.auto_show else "MANUAL")
@@ -442,16 +530,16 @@ class FireworksSimulation:
         )
         self.draw_text(
             f"SCENE: {'BACKYARD' if self.backyard else 'DEEP SPACE'}"
-            f"   |   SHELLS: {self.launch_count}   |   SPARKS: {len(self.particles):,}",
+            f"   |   WIND: {self.wind:+.0f}   |   SHELLS: {self.launch_count}   |   SPARKS: {len(self.particles):,}",
             340, 38, (165, 190, 215), self.small
         )
         self.draw_text(
-            "CLICK launch  SPACE random  1-8 styles  0 random style  B scene  R auto  P pause",
+            "CLICK launch  SPACE shell  1-8 styles  Q firecrackers  W roman candles  E fountain",
             18, 66, (205, 215, 230), self.small
         )
         self.draw_text(
-            "+/- speed  H HUD  F fullscreen  C clear  ESC quit",
-            825, 66, (165, 185, 210), self.small
+            "T bottle rocket  B scene  R auto  P pause  +/- speed  H HUD  F fullscreen  C clear",
+            18, 84, (165, 185, 210), self.small
         )
 
     def render(self):
@@ -493,6 +581,15 @@ class FireworksSimulation:
                 self.running = False
             elif event.key == pygame.K_SPACE:
                 self.launch()
+            elif event.key == pygame.K_q:
+                self.firecracker_active = not self.firecracker_active
+            elif event.key == pygame.K_w:
+                self.candle_shots = 8
+                self.candle_clock = 0
+            elif event.key == pygame.K_e:
+                self.fountain_active = not self.fountain_active
+            elif event.key == pygame.K_t:
+                self.launch((random.randint(350,WIDTH-350),random.randint(130,300)),effect=5)
             elif event.key == pygame.K_b:
                 self.backyard = not self.backyard
                 self.rebuild_background()
@@ -507,6 +604,9 @@ class FireworksSimulation:
                 self.toggle_fullscreen()
             elif event.key == pygame.K_c:
                 self.clear()
+                self.firecracker_active = False
+                self.fountain_active = False
+                self.candle_shots = 0
             elif event.key in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS):
                 self.speed = min(2.5, round(self.speed + 0.1, 2))
             elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
