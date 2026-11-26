@@ -2,7 +2,17 @@
 
 A visual-only 2D fireworks show simulator built with Python and Pygame-ce.
 
-## v0.2.0 — Grand Show
+## v0.3.0 — Total Show Overhaul
+
+- Procedurally synthesized launch, burst, crackle, firecracker, and fountain audio
+- New firecracker sequence mode with randomized popping spark clusters
+- Roman candle mode with a sequence of aerial shots
+- Continuous fountain spark effect
+- Bottle-rocket quick launch mode
+- Dynamic wind that drifts sparks and smoke
+- Retains all eight aerial shell styles and the automatic show system
+
+## Previous release: v0.2.0 — Grand Show
 
 - Eight selectable shell styles: Peony, Chrysanthemum, Willow, Ring, Palm, Crackle, Strobe, and Brocade
 - Randomized burst geometry, colors, particle speeds, spark lifetimes, and glitter
@@ -43,6 +53,10 @@ The updater validates Python syntax and creates a timestamped backup before repl
 |---|---|
 | Left click | Launch toward cursor |
 | Space | Launch random shell |
+| Q | Toggle firecracker sequence |
+| W | Fire a Roman candle sequence |
+| E | Toggle fountain |
+| T | Quick bottle-rocket-style launch |
 | 1–8 | Select a firework style |
 | 0 | Random style |
 | B | Toggle black sky / backyard |
